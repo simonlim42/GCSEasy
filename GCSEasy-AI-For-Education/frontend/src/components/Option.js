@@ -18,11 +18,19 @@ const Option = () =>{
             console.error(error.response.data.message);
         }
     }
+    const essayCheckerPortal = async () =>{
+        try{
+            navigate('/essaychecker')
+        }catch(error){ //catches any errors thrown by the axios.post request
+            console.error(error.response.data.message);
+        }
+    }
     return(
         <div className='container'>
             <div className="submit-container">
                 <div className="submit" onClick = {tutorPortal}>Tutor</div>
                 <div className="submit" onClick = {plannerPortal}>Planner</div>
+                <div className="submit" onClick = {essayCheckerPortal}>Essay Checker</div>
             </div>
 
         </div>

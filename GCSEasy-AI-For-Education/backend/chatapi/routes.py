@@ -26,12 +26,38 @@ conversation to a close and tell them you’re here to help if they have further
 TUTOR_INSTRUCTIONS = """<<You are called Turtle the Tutor. You are a supportive and collaborative instructional coach assisting students in their preparations for GCSE exams. First, introduce yourself to the student and inquire about the subject they are studying for their GCSE and the specific topics within that subject. Patiently wait for the student to respond before proceeding.
 Following this, ask the student whether they have prior knowledge of the topic or if it's entirely new to them. If they do have existing knowledge, encourage them to briefly share their understanding of the topic. Allow the student time to respond without interrupting. Subsequently, inquire about the student's learning goals for the upcoming study session. What do they aim to understand or accomplish by the end of the session? Additionally, ask if there are specific texts or resources they would like to include in their study plan. Give the student time to provide their insights. Armed with this information, create a personalized study plan that incorporates various teaching techniques and learning modalities. Include elements such as direct instruction, checking for understanding through diverse assessment methods, engaging in discussions, incorporating in-class activities, and assigning homework or independent study tasks. Explain the rationale behind each choice. Ask the student if they would like to make any adjustments to the proposed plan or if they are aware of potential misconceptions about the topic that they or their peers might encounter. Allow time for the student to respond. If changes are requested or misconceptions are identified, collaborate with the student to modify the study plan accordingly. Provide guidance on addressing misconceptions and reinforcing key concepts. Finally, ask the student if they would like any advice on how to ensure their learning goals are achieved. Share relevant tips and strategies based on your expertise. Wait for the student's response. Conclude the interaction by informing the student that they can return to you for further assistance and to share their progress. Encourage them to touch base after implementing the study plan and let you know how it went.>>"""
 
+MARKING_INSTRUCTIONS="""<<Analyze an essay to determine the grade it deserves based on the provided grading descriptions for GCSE English Language. Focus on the AOs (Assessment Objectives) and grade descriptors. Identify sentences that are strong and sentences that can be improved. Highlight the good sentences and suggest ways to improve the weaker ones.
+
+Specific Instructions:
+
+Identify the AOs addressed in the essay.
+Assess whether each AO has been addressed to a satisfactory standard for GCSE English Language.
+Compare the essay to the grade descriptors for each AO for GCSE English Language.
+Assign a grade to the essay based on the overall assessment of each AO for GCSE English Language.
+Identify sentences that are strong and sentences that can be improved.
+Highlight the good sentences and suggest ways to improve the weaker ones.
+Grading Criteria:
+
+AO1: Demonstrate a comprehensive and insightful understanding of the text, including key ideas, themes, characters, and events.
+
+AO2: Provides detailed and well-supported arguments, using evidence effectively.
+
+AO3: Uses a wide range of vocabulary, grammar, punctuation, and spelling, with no significant errors.
+
+AO4: Writes in a fluent, imaginative, and engaging style, creating a memorable and impactful piece of writing.
+
+AO5: Writes in a clear, organized, and engaging style, making an effective impact on the reader.
+
+AO6: Writes in Standard English, appropriate to the context and audience.
+
+Expected Results:
+A detailed analysis of the essay, identifying the strengths and weaknesses of the writing in relation to the provided grading information for GCSE English Language. Sentences that are strong should be highlighted, and suggested improvements for weaker sentences should be provided.>>"""
 TEMPERATURE = 0.5
-MAX_TOKENS = 100
+MAX_TOKENS = 2000
 FREQUENCY_PENALTY = 0
 PRESENCE_PENALTY = 0.6
 # limits how many questions we include in the prompt
-MAX_CONTEXT_QUESTIONS = 10
+MAX_CONTEXT_QUESTIONS = 2
 OpenAI.api_key = os.getenv("OPENAI_API_KEY")
 print(os.environ.get("OPENAI_API_KEY"))
 app = Flask(__name__)
@@ -92,6 +118,34 @@ def process_question_plan():
     response_data=[{'message': completion.choices[0].message.content, 'sender': 'bot'}]
     return jsonify(response_data)
 
+
+@app.route('/api/essaychecker', methods=['POST'])
+def process_essay():
+    # Logic for handling user questions and interacting with GPT API
+    receivedMessages=request.get_json(['newMessages'])
+    messages = [
+        {"role":"system","content":MARKING_INSTRUCTIONS}
+    ]
+    last_10_dicts =receivedMessages['newMessages'][-MAX_CONTEXT_QUESTIONS:]
+    for dic in last_10_dicts:
+        if dic["sender"] == "bot":
+            type="assistant"
+        else:
+            type="user"
+        messages.append({"role":type,"content":dic["message"]})
+    completion = client.chat.completions.create(
+    model="gpt-3.5-turbo",
+    messages=messages,
+    temperature=TEMPERATURE,
+    max_tokens=MAX_TOKENS,
+    top_p=1,
+    frequency_penalty=FREQUENCY_PENALTY,
+    presence_penalty=PRESENCE_PENALTY,
+    )
+    print([completion.choices[0].message.content])
+    response_data=[{'message': completion.choices[0].message.content, 'sender': 'bot'}]
+    return jsonify(response_data)
+
 def moderate(question):
     errors = {
         "hate": "Material expressing, inciting, or endorsing hatred based on attributes such as race, gender, ethnicity, religion, nationality, sexual orientation, disability status, or caste.",
@@ -112,6 +166,24 @@ def moderate(question):
         return result
     return None
 
-
+def moderate(question):
+    errors = {
+        "hate": "Material expressing, inciting, or endorsing hatred based on attributes such as race, gender, ethnicity, religion, nationality, sexual orientation, disability status, or caste.",
+        "hate/threatening": "Hateful content that additionally involves violence or poses a serious threat of harm to the targeted group.",
+        "self-harm": "Material that advocates, encourages, or portrays acts of self-harm, including but not limited to suicide, self-cutting, and eating disorders.",
+        "sexual": "Content designed to elicit sexual arousal, encompassing explicit descriptions of sexual activities or the promotion of sexual services (excluding sex education and wellness).",
+        "sexual/minors": "Sexual content featuring an individual who is under 18 years old.",
+        "violence": "Material that endorses or glorifies violence, or revels in the suffering or humiliation of others.",
+        "violence/graphic": "Graphic depictions of violence portraying death, violence, or severe physical injury in an exceptionally detailed manner."
+    }
+    response=OpenAI.Moderation.create(input=question)
+    if response.results[0].flagged:
+        result=[
+            error
+            for category, error in errors.items()
+            if response.results[0].categories[category]
+        ]
+        return result
+    return None
 if __name__=='__main__':
     app.run(host='localhost',port=5000,debug=True)

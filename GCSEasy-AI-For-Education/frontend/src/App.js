@@ -5,6 +5,7 @@ import Login from './components/Login.js';
 import Tutor from './components/Tutor.js';
 import Planner from './components/Planner.js';
 import Option from './components/Option.js';
+import EssayChecker from './components/EssayChecker.js';
 import './App.css';
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/option" element={<Option />} />
         <Route path="/tutor" element={<Tutor />} />
         <Route path="/planner" element={<Planner />} />
+        <Route path="/essaychecker" element={<EssayChecker />} />
 
     </Routes>
       </BrowserRouter>
